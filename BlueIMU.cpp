@@ -166,7 +166,7 @@ void positionCorrection(const float& north,   const float& east,  const float& d
    float estimateWeight = 1.0f - weight;
    Vec3 CorrectionPos = Vector(north, east, down);
    
-   velosity = Sum( Mul(position, estimateWeight), Mul(CorrectionPos, weight) );   
+   position = Sum( Mul(position, estimateWeight), Mul(CorrectionPos, weight) );   
 }
 
 void BlueIMU::computeDriftCompensation()
