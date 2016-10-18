@@ -145,6 +145,14 @@
       return a;
    }
 
+   inline Quat Mul(Quat a, const float& b) // multiply: quat * float
+   {
+      a.w *= b;
+      a.x *= b;
+      a.y *= b;
+      a.z *= b;
+      return a;
+   }
 
    inline Vec3 Mul(Vec3 a, const float& b) // multiply: vec3 * float
    {

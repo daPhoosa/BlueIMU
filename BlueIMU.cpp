@@ -27,7 +27,7 @@ BlueIMU::BlueIMU(int gyroSampleRate)
 
 
 /*
- *	SETTING FUNCTIONS
+ * SETTING FUNCTIONS
  */
 
 void BlueIMU::setGyroSampleRate( int rate)
@@ -60,7 +60,7 @@ void BlueIMU::setHeadingWithMag(const float& forward,const float& right, const f
 
    // Normalize Mag vector
    float magnitude = sqrt(magVectorWorld.x * magVectorWorld.x + magVectorWorld.y * magVectorWorld.y);
-   if(magnitude > 0.00001f)
+   if(magnitude > 1.0e-5f)
    {
       magVectorWorld = Mul(magVectorWorld, 1.0f / magnitude);
 
@@ -69,6 +69,7 @@ void BlueIMU::setHeadingWithMag(const float& forward,const float& right, const f
       attitudeEstimate = Mul(Quaternion(magVectorWorld), attitudeEstimate);
    }  
 }
+ 
  
 /*
  *	INPUT FUNCTIONS
@@ -140,7 +141,7 @@ void BlueIMU::inputMag(const float& forward, const float& right, const float& do
 
    // Normalize Mag vector
    float magnitudeSquared = magVectorWorld.x * magVectorWorld.x + magVectorWorld.y * magVectorWorld.y;
-   if(magnitudeSquared > 0.00001f)
+   if(magnitudeSquared > 1.0e-5f)
    {
       magVectorWorld = Mul( magVectorWorld, 1.0f / sqrt(magnitudeSquared) );
 
@@ -153,15 +154,15 @@ void BlueIMU::inputMag(const float& forward, const float& right, const float& do
    }
 } 
 
-void velocityCorrection(const float& forward, const float& right, const float& down, const float& weight)
+void BlueIMU::velocityCorrection(const float& forward, const float& right, const float& down, const float& weight)
 {
    float estimateWeight = 1.0f - weight;
    Vec3 CorrectionVel = Vector(forward, right, down);
    
-   velosity = Sum( Mul(velocity, estimateWeight), Mul(CorrectionVel, weight) );
+   velocity = Sum( Mul(velocity, estimateWeight), Mul(CorrectionVel, weight) );
 }
 
-void positionCorrection(const float& north,   const float& east,  const float& down, const float& weight)
+void BlueIMU::positionCorrection(const float& north,   const float& east,  const float& down, const float& weight)
 {
    float estimateWeight = 1.0f - weight;
    Vec3 CorrectionPos = Vector(north, east, down);
