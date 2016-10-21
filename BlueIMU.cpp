@@ -103,7 +103,8 @@ void BlueIMU::inputGyro(const float& rollRight, const float& pitchUp, const floa
    {
       float magnitudeSquared = attitudeEstimate.x * attitudeEstimate.x + 
                                attitudeEstimate.y * attitudeEstimate.y + 
-                               attitudeEstimate.z * attitudeEstimate.z;
+                               attitudeEstimate.z * attitudeEstimate.z +
+                               attitudeEstimate.w * attitudeEstimate.w;
 
       // use fast inverse-square-root since magnitude will always be very close to 1.0
       attitudeEstimate = Mul( attitudeEstimate, (3.0f - magnitudeSquared) * 0.5f ); 
@@ -196,7 +197,13 @@ void BlueIMU::computeDriftCompensation()
    correctionVectorBody = Rotate(correctionVectorWorld, attitudeEstimate);
    newDriftCorrection = true;
 } 
- 
+
+
+float BlueIMU::yawRadians()
+{
+   Quat q = attitudeEstimate;
+   return atan2(q.y * q.z + q.w * q.x, 0.5f - (q.x * q.x + q.y * q.y));    // Yaw
+}
  
 
 

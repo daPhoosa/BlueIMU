@@ -265,6 +265,8 @@
       return Sum(v, CrossProd(Sum(r, r), Sum(CrossProd(r, v), Mul(q.w, v)))); // 296us 
    }
 
+   
+ 
 
    /*
     *	Blue UMU - Data Display Functions
