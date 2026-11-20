@@ -18,13 +18,33 @@ All math is single-precision `float`, so it runs efficiently on MCUs with a sing
 
 ## Installation
 
-Copy the `BlueIMU` folder (containing `BlueIMU.h` and `BlueIMU.cpp`) into your Arduino `libraries` directory, then:
+**PlatformIO:** add the repository to your project's `platformio.ini`:
+
+```ini
+lib_deps = https://github.com/daPhoosa/BlueIMU.git
+```
+
+**Arduino IDE:** download the repository as a ZIP and use *Sketch → Include Library → Add .ZIP Library*, or copy the repository folder into your Arduino `libraries` directory.
+
+Then:
 
 ```cpp
 #include <BlueIMU.h>
 ```
 
-For PlatformIO, place the folder under `lib/`.
+A complete sketch is in [examples/BasicAHRS](examples/BasicAHRS/BasicAHRS.ino) (*File → Examples → BlueIMU* in the Arduino IDE).
+
+### Supported boards
+
+BlueIMU is plain C++11 with no hardware dependencies beyond `micros()`. The example is built for these boards:
+
+| Board | Flash / RAM used by BlueIMU | Notes |
+|---|---|---|
+| Arduino Uno (ATmega328P, 8-bit AVR) | ~8.1 KB / ~130 B | No FPU: all math is software floating point. `double` is 32-bit, so there's no double-math penalty. |
+| Teensy 4.1 (Cortex-M7) | not measured | Single-precision FPU. |
+| ESP32 | not measured | Single-precision FPU. |
+
+The Uno figures are measured by comparing the BasicAHRS example against a baseline sketch with the same `Serial` output. They include the trig and software floating-point routines BlueIMU pulls in; those are shared with any other code in the sketch that uses them.
 
 ## Quick start
 
@@ -192,15 +212,20 @@ build_flags = -DBLUEIMU_FAST_TRIG
 
 ## Testing
 
-Host-side unit tests live in `test/`. They use [doctest](https://github.com/doctest/doctest) (vendored as a single header) and a stub `Arduino.h`, so no board or Arduino install is needed:
+Host-side unit tests live in `test/`. They use [doctest](https://github.com/doctest/doctest) (vendored as a single header) and a stub `Arduino.h` whose `micros()` the tests control, so no board is needed. Run them with either make or PlatformIO:
 
 ```sh
-make -C test          # builds and runs twice: libm atan2f, and -DBLUEIMU_FAST_TRIG
-make -C test exact    # one variant only
-make -C test ARGS="-ts='*gimbal*'"   # pass doctest options, e.g. filter by suite
+make -C test                        # both variants: libm atan2f, and -DBLUEIMU_FAST_TRIG
+make -C test exact                  # one variant only
+make -C test ARGS="-ts='*gimbal*'"  # pass doctest options, e.g. filter by suite
+
+pio test -e native                  # same tests through PlatformIO
+pio test -e native_fast             # ... with -DBLUEIMU_FAST_TRIG
 ```
 
-The library is compiled with `-Wdouble-promotion -Wfloat-conversion -Werror`, so any accidental double-precision math fails the build.
+The make build compiles the library with `-Wdouble-promotion -Wfloat-conversion -Werror`, so any accidental double-precision math fails it.
+
+To check that the example still builds for real boards (Uno, Teensy 4.1, ESP32), run `pio run` from the repository root.
 
 ## Planned
 

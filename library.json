@@ -1,0 +1,20 @@
+{
+  "name": "BlueIMU",
+  "version": "2.0.0",
+  "description": "Lightweight quaternion-based attitude estimator (AHRS) using gyro, accelerometer and magnetometer. Single-precision float throughout.",
+  "keywords": ["imu", "ahrs", "quaternion", "attitude", "gyroscope", "accelerometer", "magnetometer", "sensor fusion"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daPhoosa/BlueIMU.git"
+  },
+  "authors": [
+    { "name": "Phillip J Schmidt", "maintainer": true }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "headers": "BlueIMU.h",
+  "export": {
+    "exclude": ["test", ".github", "compile_flags.txt"]
+  }
+}

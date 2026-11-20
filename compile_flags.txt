@@ -1,2 +1,3 @@
+-xc++
 -std=gnu++11
 -Itest/stub

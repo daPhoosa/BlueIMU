@@ -230,7 +230,8 @@
       if(vMag < 1.0e-6f) return a;  // terminate early if magnitude is negligible (a is zero rotation quat 0,0,0,1)
 
       float theta_2 = vMag * 0.5f;            // rotation angle divided by 2
-      float Sin_Mag = sinf(theta_2) / vMag;    // computation minimization
+      float sinHalf = sinf(theta_2);         // separate statement: avr-libc's sinf returns double
+      float Sin_Mag = sinHalf / vMag;         // computation minimization
 
       a.x = w.x * Sin_Mag;
       a.y = w.y * Sin_Mag;

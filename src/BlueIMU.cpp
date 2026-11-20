@@ -14,7 +14,7 @@ namespace
    // Measures the time since the previous call for one sensor stream.
    // Returns false on the first call (it only starts the clock). Unsigned subtraction
    // handles micros() wrap-around; gaps longer than MAX_DT_US are clamped.
-   inline bool elapsedMicros(unsigned long& last, bool& valid, unsigned long& dt)
+   inline bool measureInterval(unsigned long& last, bool& valid, unsigned long& dt)
    {
       unsigned long now = micros();
       dt   = now - last;
@@ -89,7 +89,7 @@ void BlueIMU::inputGyro(const float& rollRight, const float& pitchUp, const floa
 	// Time since the previous gyro sample. The first sample only starts the clock
 	// (any pending drift correction stays pending for the next sample).
 	unsigned long dt;
-	if(!elapsedMicros(lastGyroTime, gyroTimeValid, dt)) return;
+	if(!measureInterval(lastGyroTime, gyroTimeValid, dt)) return;
 
 	// quaternion integration (rotation composting through multiplication)
 	// * The three rotaional rates are converted to a vector structure
@@ -138,7 +138,7 @@ void BlueIMU::inputAccel(const float& forward, const float& right, const float& 
    // Time since the previous accel sample (tracked even when integration is off, so
    // enabling it later does not see a stale gap). The first sample only starts the clock.
    unsigned long dtMicros;
-   bool haveDt = elapsedMicros(lastAccelTime, accelTimeValid, dtMicros);
+   bool haveDt = measureInterval(lastAccelTime, accelTimeValid, dtMicros);
 
    if(integrateVelAndPos && haveDt)
    {

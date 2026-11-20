@@ -1,4 +1,5 @@
+-xc++
 -std=gnu++11
 -Istub
--I..
+-I../src
 -I.

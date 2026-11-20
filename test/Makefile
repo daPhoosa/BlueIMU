@@ -7,7 +7,7 @@
 
 CXX      ?= g++
 STD      ?= -std=gnu++11
-LIB_DIR  := ..
+LIB_DIR  := ../src
 BUILD    := build
 INCLUDES := -Istub -I$(LIB_DIR) -I.
 
