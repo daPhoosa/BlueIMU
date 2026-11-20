@@ -178,6 +178,18 @@ build_flags = -DBLUEIMU_FAST_TRIG
 - **Yaw correction uses only the horizontal component of the field.** Accuracy degrades at large tilt angles and with uncalibrated magnetometers. Hard-iron and soft-iron calibration is up to the caller.
 - **Velocity and position drift quickly.** Without external corrections they are only useful over short intervals.
 
+## Testing
+
+Host-side unit tests live in `test/`. They use [doctest](https://github.com/doctest/doctest) (vendored as a single header) and a stub `Arduino.h`, so no board or Arduino install is needed:
+
+```sh
+make -C test          # builds and runs twice: libm atan2f, and -DBLUEIMU_FAST_TRIG
+make -C test exact    # one variant only
+make -C test ARGS="-ts='*gimbal*'"   # pass doctest options, e.g. filter by suite
+```
+
+The library is compiled with `-Wdouble-promotion -Wfloat-conversion -Werror`, so any accidental double-precision math fails the build.
+
 ## Planned
 
 - Barometer input for vertical position.
@@ -185,4 +197,6 @@ build_flags = -DBLUEIMU_FAST_TRIG
 
 ## License
 
-Copyright (C) 2016 Phillip J Schmidt. Licensed under the GNU General Public License v3 or later. See the header of each source file for details.
+Copyright (c) 2016-2026 Phillip J Schmidt. Released under the [MIT License](LICENSE).
+
+The vendored test framework in `test/vendor/` ([doctest](https://github.com/doctest/doctest)) is MIT licensed by its authors. See [test/vendor/doctest-LICENSE.txt](test/vendor/doctest-LICENSE.txt).
