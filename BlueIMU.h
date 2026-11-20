@@ -22,14 +22,14 @@
 #ifndef BlueIMU_h
 	#define BlueIMU_h
 	
-	#include <arduino.h>
-	
+	#include <Arduino.h>
+
    struct Quat
    {
       float w = 1.0f;
       float x = 0.0f;
       float y = 0.0f;
-      float z = 0.0f;	
+      float z = 0.0f;
    };
 
 
@@ -38,8 +38,15 @@
       float x = 0.0f;
       float y = 0.0f;
       float z = 0.0f;
+
+      constexpr Vec3() = default;
+      constexpr Vec3(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
    };
-   Vec3 Vector(const float& x, const float& y, const float& z);
+
+   constexpr inline Vec3 Vector(float x, float y, float z) // 3x float to vector
+   {
+      return Vec3(x, y, z);
+   }
 
 
    class BlueIMU
@@ -61,7 +68,7 @@
       void inputGyro( const float& rollRight, const float& pitchUp, const float& yawRight);
       void inputAccel(const float& forward,   const float& right,   const float& down);
       void inputMag(  const float& forward,   const float& right,   const float& down);
-      void velocityCorrection(const float& forward, const float& right, const float& down, const float& weight);
+      void velocityCorrection(const float& north,   const float& east,  const float& down, const float& weight);
       void positionCorrection(const float& north,   const float& east,  const float& down, const float& weight);
 
       ///// OPERATION FUNCTIONS
@@ -69,9 +76,14 @@
 
 
       ///// OUTPUT FUNCTIONS
-      float rollRadians();
-      float pitchRadians();
-      float yawRadians();
+      // Aerospace ZYX Euler angles. Near pitch = +/-90 deg (gimbal lock) roll is reported
+      // as 0 and the combined roll/yaw rotation is reported in yaw.
+      // Define BLUEIMU_FAST_TRIG (compiler flag, e.g. -DBLUEIMU_FAST_TRIG) to use a
+      // polynomial atan2 (~1e-5 rad max error) instead of libm atan2f.
+      float rollRadians()  const;
+      float pitchRadians() const;
+      float yawRadians()   const;
+      void  getEulerRadians(float& roll, float& pitch, float& yaw) const; // cheaper than calling all three
 
       //float rollSine();
       //float pitchSine();
@@ -96,16 +108,16 @@
 
       Vec3  magneticNorth = Vector(1.0f, 0.0f, 0.0f);
 
-      unsigned long  GyroSamplePeriod,
-                     AccelSamplePeriod,
-                     MagSamplePeriod;
+      unsigned long  GyroSamplePeriod  = 0,
+                     AccelSamplePeriod = 0,
+                     MagSamplePeriod   = 0;
 
-      float magDeclination,
-            accelDeltaTime;
+      float magDeclination = 0.0f,  // radians
+            accelDeltaTime = 0.0f;  // seconds
 
-      bool  newDriftCorrection,
-            newAccelData,
-            newMagData;
+      bool  newDriftCorrection = false,
+            newAccelData       = false,
+            newMagData         = false;
 
       bool integrateVelAndPos = false;
       
@@ -119,10 +131,11 @@
     */
 
    ///// CONSTANTS
-   const Vec3 VERTICAL = Vector(0.0f, 0.0f, -1.0f);
-   const Vec3 ZEROES   = Vector(0.0f, 0.0f, 0.0f);
-   const float Deg2Rad = 0.017532925f;
-   const float Rad2Deg = 57.29577951f;
+   constexpr Vec3  VERTICAL = Vec3(0.0f, 0.0f, -1.0f);
+   constexpr Vec3  ZEROES   = Vec3(0.0f, 0.0f, 0.0f);
+   constexpr float Deg2Rad  = 0.017453293f;
+   constexpr float Rad2Deg  = 57.29577951f;
+   constexpr float GRAVITY  = 9.80665f;  // m/s^2 per G
           
    inline Quat Mul(const Quat& lhs, const Quat& rhs)  // multiply: Quat * Quat --16 mult, 12 add/sub  (266us)
    {
@@ -180,13 +193,13 @@
 
    inline float Magnitude(const Quat& a)
    {
-      return sqrt(a.w*a.w + a.x*a.x + a.y*a.y + a.z*a.z);
+      return sqrtf(a.w*a.w + a.x*a.x + a.y*a.y + a.z*a.z);
    }
 
 
    inline float Magnitude(const Vec3& a)
    {
-      return sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+      return sqrtf(a.x*a.x + a.y*a.y + a.z*a.z);
    }
 
 
@@ -220,27 +233,17 @@
 
       float vMag = Magnitude(w);
 
-      if(vMag < 1.0e-6) return a;  // terminate early if magnitude is negligible (a is zero rotation quat 0,0,0,1)
+      if(vMag < 1.0e-6f) return a;  // terminate early if magnitude is negligible (a is zero rotation quat 0,0,0,1)
 
       float theta_2 = vMag * 0.5f;            // rotation angle divided by 2
-      float Sin_Mag = sin(theta_2) / vMag;    // computation minimization
+      float Sin_Mag = sinf(theta_2) / vMag;    // computation minimization
 
       a.x = w.x * Sin_Mag;
       a.y = w.y * Sin_Mag;
       a.z = w.z * Sin_Mag;
-      a.w = cos(theta_2);
+      a.w = cosf(theta_2);
 
       return a;        // time = 390us + mult  = 636
-   }
-
-
-   inline Vec3 Vector(const float& x, const float& y, const float& z) // 3x float to vector
-   { 
-      Vec3 a;
-      a.x = x;
-      a.y = y;
-      a.z = z;
-      return a;
    }
 
 
