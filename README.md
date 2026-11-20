@@ -31,18 +31,15 @@ For PlatformIO, place the folder under `lib/`.
 ```cpp
 #include <BlueIMU.h>
 
-const int GYRO_RATE_HZ  = 500;   // must match how often inputGyro() is actually called
-const int ACCEL_RATE_HZ = 500;   // only needed for velocity/position estimation
-
-BlueIMU imu(GYRO_RATE_HZ);
+BlueIMU imu;
 
 void setup()
 {
    Serial.begin(115200);
    // ... initialize your sensors ...
 
-   imu.setMagDeclination(-3.5f);              // degrees, east positive (look up your location)
-   imu.enableVelAndPosEstimation(ACCEL_RATE_HZ);  // optional
+   imu.setMagDeclination(-3.5f);      // degrees, east positive (look up your location)
+   imu.enableVelAndPosEstimation();   // optional
 
    // Optional: snap the initial heading to the magnetometer instead of waiting for drift
    // correction to converge. Works best with the device roughly level and still.
@@ -53,25 +50,30 @@ void setup()
 
 void loop()
 {
-   static unsigned long lastGyro = micros();
-   static uint8_t       count    = 0;
+   static unsigned long lastCorrection = millis();
 
-   if (micros() - lastGyro >= 1000000UL / GYRO_RATE_HZ)
+   // Pass in each new sample as soon as it is read. The library measures the time
+   // between samples itself, so the rates don't need to be fixed or known.
+   if (gyroDataReady())
    {
-      lastGyro += 1000000UL / GYRO_RATE_HZ;
-
       float gx, gy, gz;  readGyro(gx, gy, gz);   // rad/s
-      float ax, ay, az;  readAccel(ax, ay, az);  // G
       imu.inputGyro(gx, gy, gz);
+   }
+   if (accelDataReady())
+   {
+      float ax, ay, az;  readAccel(ax, ay, az);  // G
       imu.inputAccel(ax, ay, az);
+   }
+   if (magDataReady())
+   {
+      float mf, mr, md;  readMag(mf, mr, md);
+      imu.inputMag(mf, mr, md);
+   }
 
-      if (++count >= 10)                          // e.g. 50 Hz drift correction
-      {
-         count = 0;
-         float mf, mr, md;  readMag(mf, mr, md);
-         imu.inputMag(mf, mr, md);
-         imu.computeDriftCompensation();
-      }
+   if (millis() - lastCorrection >= 20)          // e.g. 50 Hz drift correction
+   {
+      lastCorrection += 20;
+      imu.computeDriftCompensation();
    }
 
    // Optional: blend in a GPS fix when one arrives (world frame, m/s and m)
@@ -83,7 +85,7 @@ void loop()
 }
 ```
 
-`readGyro`, `readAccel` and `readMag` stand in for your sensor driver. Before passing readings in, remap the sensor axes to the body frame described below.
+`*DataReady()` and `read*()` stand in for your sensor driver. Before passing readings in, remap the sensor axes to the body frame described below.
 
 ## Frames, units and sign conventions
 
@@ -106,21 +108,31 @@ void loop()
 
 | Function | Description |
 |---|---|
-| `BlueIMU(int gyroSampleRate)` | Creates the estimator. `gyroSampleRate` is in Hz and sets the fixed time step used to integrate each gyro sample. |
-| `setGyroSampleRate(int rate)` | Changes the gyro rate (Hz). |
+| `BlueIMU()` | Creates the estimator with a level, north-facing attitude. |
 | `setMagDeclination(float degrees)` | Sets the angle between magnetic and true north (east positive). The yaw outputs are then relative to true north. |
 | `setHeadingWithMag(forward, right, down)` | Rotates the current estimate about the vertical so that its heading matches the given magnetometer reading, with declination applied. Roll and pitch are kept. Useful at startup. |
-| `enableVelAndPosEstimation(int accelSampleRate)` | Turns on velocity and position integration. Each `inputAccel()` call then advances them by `1 / accelSampleRate` seconds. |
+| `enableVelAndPosEstimation()` | Turns on velocity and position integration in `inputAccel()`. |
 
 ### Inputs
 
 | Function | Description |
 |---|---|
-| `inputGyro(rollRight, pitchUp, yawRight)` | Integrates one gyro sample into the attitude. Call this at exactly the configured rate. If drift compensation was computed since the last call, it is applied in this step. |
-| `inputAccel(forward, right, down)` | Accumulates the reading for the next drift correction. If enabled, it also integrates velocity and position, with gravity removed. |
+| `inputGyro(rollRight, pitchUp, yawRight)` | Integrates one gyro sample into the attitude over the time since the previous call. If drift compensation was computed since the last call, it is applied in this step. |
+| `inputAccel(forward, right, down)` | Accumulates the reading for the next drift correction. If enabled, it also integrates velocity and position over the time since the previous call, with gravity removed. |
 | `inputMag(forward, right, down)` | Accumulates the horizontal component of the reading for the next yaw correction. |
 | `velocityCorrection(north, east, down, weight)` | Blends an external velocity (m/s, NED) into the estimate: `v = (1 - weight)·v + weight·measured`, where `weight` is between 0 and 1. |
 | `positionCorrection(north, east, down, weight)` | The same blend, for position (m, NED). |
+
+#### Sample timing
+
+`inputGyro()` and `inputAccel()` each read `micros()` and measure the time since their own previous call:
+
+- **First sample:** the first call of each only starts its clock. Nothing is integrated, although the first accel reading still counts toward drift correction.
+- **Long gaps:** an interval longer than `MAX_DT_US` (default 100 ms), such as a stall or a sensor dropout, is clamped to that value so it can't cause a large jump.
+- **Large rotations:** for a gyro interval longer than `LARGE_ANGLE_DT_US` (default 10 ms), the rotation uses the exact axis-angle quaternion. Shorter intervals use a cheaper small-angle approximation, whose error per step is about θ³/12 for a step angle θ.
+- **Wrap-around:** the roll-over of `micros()` (about every 71 minutes) is handled.
+
+Both constants are `constexpr` values in the constants section of `BlueIMU.h`.
 
 ### Drift correction
 
@@ -150,7 +162,7 @@ The raw state is also accessible as public members: `attitudeEstimate` (a `Quat`
 - `Rotate(q, v)` rotates `v` from body to world. `Rotate(v, q)` rotates from world to body.
 - `Quaternion(angleVec)` builds a rotation quaternion from a rotation vector.
 
-Constants: `Deg2Rad`, `Rad2Deg`, `GRAVITY` (9.80665 m/s²), `VERTICAL`, `ZEROES`.
+Constants: `Deg2Rad`, `Rad2Deg`, `GRAVITY` (9.80665 m/s²), `VERTICAL`, `ZEROES`, `LARGE_ANGLE_DT_US`, `MAX_DT_US`.
 
 ## Euler angles and gimbal lock
 
@@ -172,7 +184,7 @@ build_flags = -DBLUEIMU_FAST_TRIG
 
 ## Limitations
 
-- **Fixed time steps.** Gyro integration assumes exactly `1 / gyroSampleRate` seconds between `inputGyro()` calls, and velocity integration assumes `1 / accelSampleRate` between `inputAccel()` calls. Timing jitter shows up directly as error.
+- **Timestamps are taken when the input function is called,** not when the sensor sampled. If the delay between the sensor sampling and your code passing the reading in varies, that variation shows up as timing error.
 - **No gain tuning or gyro-bias estimation.** The strength of the drift correction depends on how many accel and mag samples accumulate between `computeDriftCompensation()` calls. There is no integral term, so a constant gyro bias produces a small steady attitude offset.
 - **Accelerometer assumed to measure gravity only.** Sustained linear acceleration, such as turns or speeding up and slowing down, pulls the roll and pitch estimate toward a false vertical.
 - **Yaw correction uses only the horizontal component of the field.** Accuracy degrades at large tilt angles and with uncalibrated magnetometers. Hard-iron and soft-iron calibration is up to the caller.

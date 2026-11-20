@@ -92,3 +92,19 @@ struct Rng
 
 // Quaternions compared component-wise (sign matters).
 #define CHECK_QUAT_NEAR(a, b, tol) do { CHECK_NEAR((a).w, (b).w, tol); CHECK_VEC_NEAR(a, b, tol); } while (0)
+
+// ---- simulated time ----
+inline void advanceMicros(unsigned long us) { stubMicros() += us; }
+
+// Start both sensor clocks "now" without feeding a sample (so the next input has a valid dt).
+inline void primeClocks(BlueIMU& imu)
+{
+   imu.lastGyroTime  = imu.lastAccelTime  = stubMicros();
+   imu.gyroTimeValid = imu.accelTimeValid = true;
+}
+
+// Feed one sample dtUs after the previous one.
+inline void gyroStep(BlueIMU& imu, unsigned long dtUs, float x, float y, float z)  { advanceMicros(dtUs); imu.inputGyro(x, y, z); }
+inline void accelStep(BlueIMU& imu, unsigned long dtUs, float x, float y, float z) { advanceMicros(dtUs); imu.inputAccel(x, y, z); }
+inline void gyroStep(BlueIMU& imu, unsigned long dtUs, const Vec3& w)  { gyroStep(imu, dtUs, w.x, w.y, w.z); }
+inline void accelStep(BlueIMU& imu, unsigned long dtUs, const Vec3& a) { accelStep(imu, dtUs, a.x, a.y, a.z); }

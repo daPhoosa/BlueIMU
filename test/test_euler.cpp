@@ -19,7 +19,7 @@ TEST_SUITE("Euler outputs")
 {
    TEST_CASE("identity attitude is all zeros")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       CHECK(imu.rollRadians()  == 0.0f);
       CHECK(imu.pitchRadians() == 0.0f);
       CHECK(imu.yawRadians()   == 0.0f);
@@ -27,7 +27,7 @@ TEST_SUITE("Euler outputs")
 
    TEST_CASE("single-axis rotations")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       for (double a : {-3.0, -1.5, -0.3, 0.3, 1.5, 3.0})
       {
          CAPTURE(a);
@@ -45,7 +45,7 @@ TEST_SUITE("Euler outputs")
 
    TEST_CASE("round-trips random attitudes away from gimbal lock")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       Rng rng(7);
       for (int i = 0; i < 20000; i++)
       {
@@ -61,7 +61,7 @@ TEST_SUITE("Euler outputs")
 
    TEST_CASE("full quadrant coverage of roll and yaw (atan2 signs)")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       for (int k = -11; k <= 12; k++)   // 15 deg steps through (-180, 180]
       {
          double a = k * PI / 12;
@@ -74,7 +74,7 @@ TEST_SUITE("Euler outputs")
 
    TEST_CASE("individual functions match getEulerRadians exactly")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       Rng rng(11);
       for (int i = 0; i < 5000; i++)
       {
@@ -90,7 +90,7 @@ TEST_SUITE("Euler outputs")
 
    TEST_CASE("independent of quaternion scale and sign")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       Quat q = fromEuler(0.7, -0.6, 2.2);
       for (float s : {0.5f, 0.999f, 1.0f, 1.001f, 3.0f, -1.0f, -2.0f})
       {
@@ -108,7 +108,7 @@ TEST_SUITE("Euler outputs near gimbal lock")
 {
    TEST_CASE("exactly +/-90 deg pitch: roll = 0, combined rotation in yaw")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       for (double roll : {-2.0, -0.3, 0.0, 0.3, 1.0})
          for (double yaw : {-2.5, 0.0, 1.0})
          {
@@ -129,7 +129,7 @@ TEST_SUITE("Euler outputs near gimbal lock")
 
    TEST_CASE("reported angles always describe the true rotation")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       Rng rng(3);
       for (int i = 0; i < 20000; i++)
       {
@@ -147,7 +147,7 @@ TEST_SUITE("Euler outputs near gimbal lock")
 
    TEST_CASE("pitch is monotonic and accurate approaching 90 deg")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       double last = -1;
       for (int k = 0; k <= 2000; k++)
       {
@@ -162,7 +162,7 @@ TEST_SUITE("Euler outputs near gimbal lock")
 
    TEST_CASE("degenerate zero quaternion does not produce NaN")
    {
-      BlueIMU imu(100);
+      BlueIMU imu;
       imu.attitudeEstimate = quat(0, 0, 0, 0);
       double R, P, Y; euler(imu, R, P, Y);
       CHECK(std::isfinite(R)); CHECK(std::isfinite(P)); CHECK(std::isfinite(Y));

@@ -8,22 +8,36 @@
 
 #include "BlueIMU.h" 
 
- 
-BlueIMU::BlueIMU(int gyroSampleRate)
+
+namespace
 {
-   setGyroSampleRate(gyroSampleRate);
-} 
+   // Measures the time since the previous call for one sensor stream.
+   // Returns false on the first call (it only starts the clock). Unsigned subtraction
+   // handles micros() wrap-around; gaps longer than MAX_DT_US are clamped.
+   inline bool elapsedMicros(unsigned long& last, bool& valid, unsigned long& dt)
+   {
+      unsigned long now = micros();
+      dt   = now - last;
+      last = now;
+      if(!valid)
+      {
+         valid = true;
+         return false;
+      }
+      if(dt > MAX_DT_US) dt = MAX_DT_US;
+      return true;
+   }
+}
+
+
+BlueIMU::BlueIMU()
+{
+}
 
 
 /*
  * SETTING FUNCTIONS
  */
-
-void BlueIMU::setGyroSampleRate( int rate)
-{
-   if(rate < 1) rate = 1;
-   GyroSamplePeriod  = 1000000UL / rate;  // microseconds per sample
-}
 
 void BlueIMU::setMagDeclination( float decDegrees)
 {
@@ -32,10 +46,8 @@ void BlueIMU::setMagDeclination( float decDegrees)
    magneticNorth.y = sinf(magDeclination);
 }
 
-void BlueIMU::enableVelAndPosEstimation(int accelSampleRate)
+void BlueIMU::enableVelAndPosEstimation()
 {
-   if(accelSampleRate < 1) accelSampleRate = 1;
-   accelDeltaTime = 1.0f / float(accelSampleRate);
    integrateVelAndPos = true;
 }
  
@@ -74,18 +86,27 @@ void BlueIMU::inputGyro(const float& rollRight, const float& pitchUp, const floa
 	// (Y) pos pitch: Z --> X
 	// (Z) pos Yaw:   X --> Y
 	
+	// Time since the previous gyro sample. The first sample only starts the clock
+	// (any pending drift correction stays pending for the next sample).
+	unsigned long dt;
+	if(!elapsedMicros(lastGyroTime, gyroTimeValid, dt)) return;
+
 	// quaternion integration (rotation composting through multiplication)
 	// * The three rotaional rates are converted to a vector structure
 	Vec3 gyroVec = Vector(rollRight, pitchUp, yawRight);
-	
+
 	if(newDriftCorrection) // check if a drift correction has been generated
    {
 		gyroVec = Sum(gyroVec, correctionVectorBody);	// add the correction to the gyro vector to save time doing the correction independently
 		newDriftCorrection = false;
 	}
-	
-	// * That vector is combined with the sample time interval to create a quaternion that represents the small attitude change since last update
-	rotationDelta = Quaternion(gyroVec, GyroSamplePeriod);
+
+	// * That vector is combined with the sample time interval to create a quaternion that represents the attitude change since last update.
+	//   Short intervals use the cheap small-angle approximation; long ones use the exact axis-angle form.
+	if(dt > LARGE_ANGLE_DT_US)
+		rotationDelta = Quaternion( Mul(gyroVec, float(dt) * 1.0e-6f) );
+	else
+		rotationDelta = Quaternion(gyroVec, dt);
 
 	// * The attitude update quat and the previous quat are combined (through quat multiplication) to create the new attitude estimate
 	attitudeEstimate = Mul(rotationDelta, attitudeEstimate);
@@ -114,13 +135,20 @@ void BlueIMU::inputAccel(const float& forward, const float& right, const float& 
    // Once a correction is computed, this will be set to zero
    accelAccumulator = Sum( accelAccumulator, accelVectorWorld );
 
-   if(integrateVelAndPos)
+   // Time since the previous accel sample (tracked even when integration is off, so
+   // enabling it later does not see a stale gap). The first sample only starts the clock.
+   unsigned long dtMicros;
+   bool haveDt = elapsedMicros(lastAccelTime, accelTimeValid, dtMicros);
+
+   if(integrateVelAndPos && haveDt)
    {
+      float dt = float(dtMicros) * 1.0e-6f;
+
       // Remove gravity (accelerometer reads VERTICAL at rest) and convert G to m/s^2
       Vec3 linearAccel = Mul( Sum(accelVectorWorld, Mul(VERTICAL, -1.0f)), GRAVITY );
 
-      velocity = Sum( velocity, Mul(linearAccel, accelDeltaTime) );
-      position = Sum( position, Mul(velocity, accelDeltaTime) );
+      velocity = Sum( velocity, Mul(linearAccel, dt) );
+      position = Sum( position, Mul(velocity, dt) );
    }
 
    newAccelData = true;

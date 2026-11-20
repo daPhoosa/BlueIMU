@@ -45,15 +45,16 @@
 
 
 
-      BlueIMU(int gyroSampleRate);
+      BlueIMU();
 
       ///// SET FUNCTIONS
-      void setGyroSampleRate( int rate);
       void setMagDeclination( float decDegrees);
       void setHeadingWithMag(const float& forward,const float& right, const float& down);
-      void enableVelAndPosEstimation(int accelSampleRate);
+      void enableVelAndPosEstimation();
 
       ///// INPUT FUNCTIONS
+      // inputGyro and inputAccel measure the time since their previous call with micros().
+      // The first call of each only starts the clock; gaps are capped at MAX_DT_US.
       void inputGyro( const float& rollRight, const float& pitchUp, const float& yawRight);
       void inputAccel(const float& forward,   const float& right,   const float& down);
       void inputMag(  const float& forward,   const float& right,   const float& down);
@@ -97,14 +98,14 @@
 
       Vec3  magneticNorth = Vector(1.0f, 0.0f, 0.0f);
 
-      unsigned long  GyroSamplePeriod  = 0,
-                     AccelSamplePeriod = 0,
-                     MagSamplePeriod   = 0;
+      unsigned long  lastGyroTime  = 0,   // micros() of the previous sample
+                     lastAccelTime = 0;
 
-      float magDeclination = 0.0f,  // radians
-            accelDeltaTime = 0.0f;  // seconds
+      float magDeclination = 0.0f;  // radians
 
-      bool  newDriftCorrection = false,
+      bool  gyroTimeValid      = false,  // false until the first sample sets the clock
+            accelTimeValid     = false,
+            newDriftCorrection = false,
             newAccelData       = false,
             newMagData         = false;
 
@@ -125,6 +126,10 @@
    constexpr float Deg2Rad  = 0.017453293f;
    constexpr float Rad2Deg  = 57.29577951f;
    constexpr float GRAVITY  = 9.80665f;  // m/s^2 per G
+
+   ///// TIMING CONSTANTS (microseconds)
+   constexpr unsigned long LARGE_ANGLE_DT_US = 10000UL;   // gyro dt above this uses the exact (large-angle) rotation quaternion
+   constexpr unsigned long MAX_DT_US         = 100000UL;  // gaps longer than this (stalls, dropouts) are clamped to it
           
    inline Quat Mul(const Quat& lhs, const Quat& rhs)  // multiply: Quat * Quat --16 mult, 12 add/sub  (266us)
    {
